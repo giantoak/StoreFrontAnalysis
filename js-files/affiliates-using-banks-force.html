@@ -1,0 +1,278 @@
+<meta charset="utf-8">
+<script type="text/javascript" src="./d3.min.js"></script>
+<script type="text/javascript" src="./d3.tip.v0.6.3.js"></script>
+<style>
+
+path.link {
+  fill: none;
+  stroke: #666;
+  stroke-width: 1.5px;
+}
+
+circle {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+text {
+  fill: #000;
+  font: 10px sans-serif;
+  pointer-events: none;
+}
+
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.8);
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+code {
+    background-color: #F9F9F9;
+    border: 1px dashed #2F6FAB;
+    color: black;
+    line-height: 1.1em;
+    padding: 1em;
+}
+
+td {
+	padding: 10px;
+}
+
+/* Style northward tooltips differently */
+.d3-tip.n:after {
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
+}
+</style>
+<body>
+<div>
+<h2>Affiliates/Banks Associations</h2>
+<p>This graph shows the relationship between the Pharma Affiliates and the Banks they used as their payment processors.  This dataset has been cleaned using the following criteria:</p>
+<ul>
+	<li>Removed Data collected after "2013-05-27 13:28:20" as it represents the results of additional research conducted using the database.  (per email/conversations with Damon McCoy).</li>
+	<li>Non-identifiable Banks records filtered out, e.g. those with names like "Unknown", or "no authorization attempted". <br/>NOTE: these records are ids in the "<strong>NOT IN</strong>" list in the SQL Statement.</li>
+</ul>
+<p>&nbsp;</p>
+<table>
+	<tbody>
+		<tr>
+			<td style="vertical-align: top; ">
+				<table style="background-color: #dddddd; border: 2px dotted black; padding: 10px; ">
+					<thead style="background-color: white;" >
+						<tr>
+							<td><h3>SQL Statement</h3></td>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><strong>SELECT DISTINCT ON(</strong>b.id, a.id<strong>)</strong></td>
+						</tr>
+						<tr style="text-align: right;">
+							<td>b.bank_name <strong>AS </strong>target,</td>
+						</tr>	
+						<tr style="text-align: right;">
+							<td>a.name <strong>AS </strong>source,</td>
+						</tr>	
+						<tr style="text-align: right;">
+							<td><strong>COUNT(*) AS </strong>value</td>
+						</tr>	
+						<tr>
+							<td><strong>FROM</strong></td>
+						</tr>
+						<tr style="text-align: right;">
+							<td>banks b</td>
+						</tr>	
+						<tr style="text-align: right;">
+							<td>aff_programs a</td>
+						</tr>	
+						<tr style="text-align: right;">
+							<td>purchase_info p</td>
+						</tr>	
+						<tr>
+							<td><strong>WHERE</strong></td>
+						</tr>
+						<tr style="text-align: right;">
+							<td>b.id <strong> = </strong>p.bank_id</td>
+						</tr>	
+						<tr style="text-align: right;">
+							<td>a.id <strong> = </strong>p.aff_id</td>
+						</tr>	
+						<tr style="text-align: right;">
+							<td>b.id <strong> not in ( </strong></td>
+						</tr>	
+						<tr style="text-align: right;">
+							<td>-1, 55, 58, 66, 68, 69,</td>
+						</tr>	
+						<tr style="text-align: right;">
+							<td>70, 71, 72, 81, 82<strong> )</strong></td>
+						</tr>	
+						<tr>
+							<td><strong>GROUP BY</strong></td>
+						</tr>
+						<tr style="text-align: right;">
+							<td>b.id,</td>
+						</tr>	
+						<tr style="text-align: right;">
+							<td>a.id</td>
+						</tr>	
+					</tbody>
+				</table>
+			</td>
+			<td><div class="graph" style="border: 2px solid; padding: 10px;"></div></td>
+			<td style="vertical-align: top; ">
+				<table>
+					<thead>
+						<tr>
+							<th>Node Type</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+						    <td style="background-color:#FF0000; color: #FFFFFF; padding: 10px;">Store Fronts</td>
+						</tr>
+						<tr>
+						    <td style="background-color:#CCCCCC; padding: 10px;">Payment Processors</td>
+						</tr>
+					</tbody>
+				</table>
+			</td>
+		</tr>
+	</tbody>
+</table>
+</div>
+<script>
+
+var tip = d3.tip()
+  .attr('class', 'd3-tip')
+  .offset([-10, 0])
+  .html(function(d) {
+    return "<strong>Name:</strong> <span style='color:red'>" + d.name + "</span><br/><strong>Transactions:</strong> " + activity[d.name];
+  })
+var activity = {};
+
+// get the data
+d3.csv("./bank-to-affiliate-association.csv", function(error, links) {
+
+var nodes = {};
+
+
+
+// Compute the distinct nodes from the links.
+links.forEach(function(link) {
+
+    link.source = nodes[link.source] || 
+        (nodes[link.source] = {name: link.source, value: link.value, type: "s"});
+    link.target = nodes[link.target] || 
+        (nodes[link.target] = {name: link.target, value: link.value, type: "t"});
+    link.value = +link.value;
+
+    activity[link.source.name] ? activity[link.source.name] += link.value : activity[link.source.name] = link.value;
+    activity[link.target.name] ? activity[link.target.name] += link.value : activity[link.target.name] = link.value;
+
+});
+
+var width = 960,
+    height = 960;
+
+var force = d3.layout.force()
+    .nodes(d3.values(nodes))
+    .links(links)
+    .size([width, height])
+//    .charge(-300)
+    .charge(function(d) { console.log("charge(" + d.value * -100 + ")"); return d.value * -100 })
+    .on("tick", tick)
+    .linkDistance(function(d) {
+
+	  return d.value * 50;
+     })
+    .start();
+
+var svg = d3.select(".graph").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+svg.call(tip);
+
+// build the arrow.
+svg.append("svg:defs").selectAll("marker")
+    .data(["end"])
+  .enter().append("svg:marker")
+    .attr("id", String)
+    .attr("viewBox", "0 -5 10 10")
+    .attr("refX", 15)
+    .attr("refY", -1.5)
+    .attr("markerWidth", 6)
+    .attr("markerHeight", 6)
+    .attr("orient", "auto")
+  .append("svg:path")
+    .attr("d", "M0,-5L10,0L0,5");
+
+// add the links and the arrows
+var path = svg.append("svg:g").selectAll("path")
+    .data(force.links())
+  .enter().append("svg:path")
+    .attr("class", "link")
+    .attr("marker-end", "url(#end)");
+
+// define the nodes
+var node = svg.selectAll(".node")
+    .data(force.nodes())
+  .enter().append("g")
+    .attr("class", "node")
+    .call(force.drag);
+
+// add the nodes
+node.append("circle")
+    .style("fill", function(d) { 
+		return d.type == "t" ? "#cccccc" : "#ff0000" })
+      .on('mouseover', tip.show)
+      .on('mouseout', tip.hide)
+    .attr("r", function(d) { return (activity[d.name] > 2 ? activity[d.name] : 2 ); });
+
+// add the text 
+node.append("text")
+    .attr("x", 12)
+    .attr("dy", ".35em")
+    .text(function(d) { return d.name; });
+
+// add the curvy lines
+function tick() {
+    path.attr("d", function(d) {
+        var dx = d.target.x - d.source.x,
+            dy = d.target.y - d.source.y,
+            dr = Math.sqrt(dx * dx + dy * dy);
+        return "M" + 
+            d.source.x + "," + 
+            d.source.y + "A" + 
+            dr + "," + dr + " 0 0,1 " + 
+            d.target.x + "," + 
+            d.target.y;
+    });
+
+    node
+        .attr("transform", function(d) { 
+            return "translate(" + d.x + "," + d.y + ")"; });
+}
+
+});
+
+</script>
+</body>
+</html>
